@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="todoMapper">
+
+	<!-- TodoDTO 매핑 -->
+	<resultMap id="todoResultMap" type="model.dto.TodoDTO">
+		<id property="todoId" column="TODO_ID" />
+		<result property="userId" column="USER_ID" />
+		<result property="subject" column="SUBJECT" />
+		<result property="content" column="CONTENT" />
+		<result property="deadline" column="DEADLINE" jdbcType="DATE" />
+		<result property="goal" column="GOAL" jdbcType="INTEGER" />
+		<result property="status" column="STATUS" />
+		<result property="createdAt" column="CREATED_AT"
+			jdbcType="TIMESTAMP" />
+		<result property="feedback" column="FEEDBACK" />
+		<result property="total" column="TOTAL" jdbcType="INTEGER" />
+		<result property="clear" column="CLEAR" jdbcType="DATE" />
+	</resultMap>
+
+	<!-- TimerTodoDTO 매핑 (TODO_LIST와 STUDY_TIMER 조인 결과) -->
+	<resultMap id="todoResultMapWithTimer"
+		type="model.dto.TimerTodoDTO">
+		<id property="todoId" column="TODO_ID" />
+		<result property="userId" column="USER_ID" />
+		<result property="subject" column="SUBJECT" />
+		<result property="content" column="CONTENT" />
+		<result property="deadline" column="DEADLINE" jdbcType="DATE" />
+		<result property="goal" column="GOAL" jdbcType="INTEGER" />
+		<result property="status" column="STATUS" />
+		<result property="createdAt" column="CREATED_AT"
+			jdbcType="TIMESTAMP" />
+		<result property="feedback" column="FEEDBACK" />
+		<result property="clear" column="CLEAR" jdbcType="DATE" />
+		<result property="totalMinutes" column="TOTAL_MINUTES"
+			jdbcType="INTEGER" />
+		<result property="total" column="TOTAL" jdbcType="INTEGER" />
+	</resultMap>
+
+
+	<!-- =================================================================== -->
+	<!-- INSERT 쿼리 -->
+	<!-- =================================================================== -->
+
+	<!-- 할 일 추가 -->
+	<insert id="insertTodo" parameterType="model.dto.TodoDTO"
+		useGeneratedKeys="true" keyProperty="todoId" keyColumn="TODO_ID">
+		INSERT INTO
+		TODO_LIST (USER_ID, SUBJECT, CONTENT, DEADLINE, GOAL, STATUS, TOTAL)
+		VALUES (#{userId}, #{subject}, #{content}, #{deadline}, #{goal},
+		#{status}, 0)
+	</insert>
+
+
+	<!-- =================================================================== -->
+	<!-- UPDATE 쿼리 -->
+	<!-- =================================================================== -->
+
+	<!-- 피드백 수정 -->
+	<update id="updateFeedbackByTodoId" parameterType="map">
+		UPDATE
+		TODO_LIST
+		SET FEEDBACK = #{feedback}
+		WHERE TODO_ID = #{todoId}
+	</update>
+
+	<!-- 할 일 수정 (제목, 내용, 마감일, 목표) -->
+	<update id="updateTodo" parameterType="model.dto.TodoDTO">
+		UPDATE TODO_LIST
+		<set>
+			<if test="subject != null">SUBJECT = #{subject},</if>
+			<if test="content != null">CONTENT = #{content},</if>
+			<if test="deadline != null">DEADLINE = #{deadline},</if>
+			<if test="deadline == null">DEADLINE = NULL,</if>
+			<if test="goal != null">GOAL = #{goal},</if>
+		</set>
+		WHERE TODO_ID = #{todoId}
+	</update>
+
+	<!-- TODO_LIST의 TOTAL 값만 업데이트 -->
+	<update id="updateTodoTotalOnly" parameterType="map">
+		UPDATE TODO_LIST
+		SET TOTAL = #{total}
+		WHERE USER_ID = #{userId} AND TODO_ID = #{todoId}
+	</update>
+
+	<!-- 할 일 상태를 '완료'로 변경 및 TOTAL 업데이트 -->
+	<update id="updateTodoStatusToCompletedByTodoIdWithClear"
+		parameterType="map">
+		UPDATE TODO_LIST
+		SET STATUS = #{status}, TOTAL = #{total}
+		WHERE TODO_ID = #{todoId}
+	</update>
+
+
+	<!-- =================================================================== -->
+	<!-- DELETE 쿼리 -->
+	<!-- =================================================================== -->
+
+	<!-- 할 일 삭제 -->
+	<delete id="deleteTodo" parameterType="int">
+		DELETE FROM TODO_LIST
+		WHERE TODO_ID = #{todoId}
+	</delete>
+
+
+	<!-- =================================================================== -->
+	<!-- SELECT 쿼리 -->
+	<!-- =================================================================== -->
+
+	<!-- 완료된 TODO 목록 조회 -->
+	<select id="getCompletedTodoList" parameterType="String"
+		resultMap="todoResultMap">
+		SELECT * FROM TODO_LIST
+		WHERE USER_ID = #{userId} AND STATUS
+		= '완료'
+		ORDER BY DEADLINE ASC
+	</select>
+
+	<!-- 특정 TODO_ID로 할 일 조회 -->
+	<select id="selectTodoById" parameterType="int"
+		resultType="model.dto.TodoDTO">
+		SELECT TODO_ID, USER_ID, SUBJECT, CONTENT, DEADLINE, GOAL,
+		STATUS, CREATED_AT, FEEDBACK, TOTAL
+		FROM TODO_LIST
+		WHERE TODO_ID =
+		#{todoId}
+	</select>
+
+	<!-- ✅ 미완료 할 일 목록 조회 (todo_list.jsp용) -->
+	<select id="selectIncompleteTodosByUserId"
+		parameterType="String" resultMap="todoResultMap">
+		SELECT
+		td.TODO_ID,
+		td.USER_ID,
+		td.SUBJECT,
+		td.CONTENT,
+		td.DEADLINE,
+		td.GOAL,
+		td.STATUS,
+		td.CREATED_AT,
+		td.FEEDBACK,
+		td.TOTAL,
+		st.CLEAR AS CLEAR <!-- ✅ STUDY_TIMER의 CLEAR를 TodoDTO의 clear 필드에 매핑 -->
+		FROM TODO_LIST td
+		LEFT JOIN STUDY_TIMER st ON td.USER_ID = st.USER_ID
+		AND td.SUBJECT = st.SUBJECT
+		WHERE td.USER_ID = #{userId}
+		AND td.STATUS =
+		'미완료'
+		<!-- ✅ DEADLINE이 현재 날짜 이후여야 함 -->
+		AND (td.DEADLINE IS NULL OR td.DEADLINE >= TRUNC(SYSDATE))
+		<!-- ✅ STUDY_TIMER의 CLEAR의 값이 없거나 오늘 날짜여야 함 -->
+		AND (st.CLEAR IS NULL OR st.CLEAR = TRUNC(SYSDATE))
+		ORDER BY
+		td.DEADLINE ASC
+	</select>
+
+	<!-- 완료 또는 기한 초과 할 일 목록 조회 -->
+	<select id="selectCompletedTodosByUserId" parameterType="String"
+		resultType="model.dto.TodoDTO">
+		SELECT *
+		FROM TODO_LIST
+		WHERE USER_ID = #{userId}
+		AND (STATUS
+		= '완료' OR DEADLINE &lt; SYSDATE)
+		ORDER BY DEADLINE ASC
+	</select>
+
+	<!-- 특정 과목의 내용 조회 -->
+	<select id="selectContentByUserIdAndSubject" parameterType="map"
+		resultType="string">
+		SELECT CONTENT
+		FROM TODO_LIST
+		WHERE USER_ID = #{userId} AND
+		SUBJECT = #{subject}
+	</select>
+
+	<!-- 제목 중복 확인 -->
+	<select id="checkSubjectDuplicate" parameterType="map"
+		resultType="int">
+		SELECT COUNT(*)
+		FROM TODO_LIST
+		WHERE USER_ID = #{userId} AND
+		SUBJECT = #{subject}
+	</select>
+
+	<!-- 완료된 TODO 목록과 타이머 정보 조인 조회 -->
+	<select id="getCompletedTodoWithTimer" parameterType="String"
+		resultMap="todoResultMapWithTimer">
+		SELECT
+		t.TODO_ID, t.USER_ID, t.SUBJECT, t.CONTENT,
+		t.DEADLINE, t.GOAL,
+		t.STATUS, t.CREATED_AT, t.FEEDBACK,
+		st.TOTAL_MINUTES,
+		st.TOTAL
+		FROM TODO_LIST t
+		LEFT JOIN STUDY_TIMER st ON
+		t.USER_ID = st.USER_ID AND t.SUBJECT = st.SUBJECT
+		WHERE t.USER_ID =
+		#{userId}
+		AND (t.STATUS = '완료' OR t.DEADLINE &lt; TRUNC(SYSDATE))
+		ORDER
+		BY t.DEADLINE ASC
+	</select>
+
+	<!-- TODO_ID로 목표 시간 조회 -->
+	<select id="getGoalByTodoId" parameterType="int"
+		resultType="int">
+		SELECT GOAL FROM TODO_LIST WHERE TODO_ID = #{todoId}
+	</select>
+
+	<select id="getTotalByTodoId" parameterType="int"
+		resultType="int">
+		SELECT TOTAL FROM TODO_LIST WHERE USER)ID = #{userId}
+	</select>
+
+	<!-- 특정 TODO_ID의 STATUS 조회 쿼리 -->
+	<select id="getTodoStatusById" parameterType="map"
+		resultType="string">
+		SELECT STATUS
+		FROM TODO_LIST
+		WHERE USER_ID = #{userId} AND
+		TODO_ID = #{todoId}
+	</select>
+
+	<!-- ✅ STUDY_TIMER 테이블에서 특정 사용자+과목의 누적 공부 시간(TOTAL)을 조회 -->
+	<select id="getStudyTimerTotal" parameterType="map"
+		resultType="int">
+		SELECT TOTAL
+		FROM STUDY_TIMER
+		WHERE USER_ID = #{userId}
+		AND SUBJECT = #{subject}
+	</select>
+
+</mapper>

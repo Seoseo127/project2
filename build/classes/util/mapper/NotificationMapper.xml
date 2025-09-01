@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="NotificationMapper">
+
+<insert id="addNotification" parameterType="model.dto.NotificationDTO">
+  INSERT INTO notifications (
+    noti_id, user_id, post_id, type, message, is_read, created_at
+  ) VALUES (
+    NOTI_SEQ.NEXTVAL,
+    #{userId}, #{postId}, #{type}, #{message}, 'N', SYSDATE  <!-- ✅ 시간 포함됨 -->
+  )
+</insert>
+
+
+  <select id="getUnreadCount" parameterType="string" resultType="int">
+    SELECT COUNT(*) FROM NOTIFICATIONS
+    WHERE USER_ID = #{userId} AND IS_READ = 'N'
+  </select>
+
+  <select id="getNotificationsByUser" parameterType="string" resultType="model.dto.NotificationDTO">
+    SELECT * FROM NOTIFICATIONS
+    WHERE USER_ID = #{userId}
+    ORDER BY CREATED_AT DESC
+  </select>
+
+<update id="markAsReadById" parameterType="int">
+  UPDATE notifications SET is_read = 'Y' WHERE noti_id = #{notiId}
+</update>
+
+
+<delete id="deleteNotification" parameterType="int">
+	  DELETE FROM NOTIFICATIONS WHERE NOTI_ID = #{notiId}
+</delete>
+
+</mapper>
