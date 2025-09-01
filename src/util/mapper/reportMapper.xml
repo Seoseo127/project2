@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="reportMapper">
+
+	<!-- 특정 유저가 받은 전체 신고 내역 -->
+	<select id="getReportsByUser" parameterType="string"
+		resultType="model.dto.ReportDTO">
+		SELECT r.*,
+		COALESCE(p.USER_ID, cUser.USER_ID) AS
+		targetUserId,
+		COALESCE(pUser.NICKNAME, cUser.NICKNAME) AS
+		targetNickname,
+		COALESCE(p.TITLE, c.C_CONTENT) AS targetTitle,
+		c.POST_ID AS postId
+		FROM REPORTS r
+		LEFT JOIN POSTS p ON r.TARGET_TYPE =
+		'post' AND r.TARGET_ID =
+		TO_CHAR(p.POST_ID)
+		LEFT JOIN USERS pUser ON
+		p.USER_ID = pUser.USER_ID
+		LEFT JOIN COMMENTS c ON r.TARGET_TYPE =
+		'comment' AND r.TARGET_ID =
+		TO_CHAR(c.COMMENT_ID)
+		LEFT JOIN USERS cUser
+		ON c.USER_ID = cUser.USER_ID
+		WHERE COALESCE(p.USER_ID, cUser.USER_ID) =
+		#{userId}
+		ORDER BY r.CREATED_AT DESC
+	</select>
+
+	<!-- 동일 사유(content)로 3회 이상 신고된 내역 -->
+	<select id="getDuplicateReportCounts" parameterType="string"
+		resultType="map">
+		SELECT CONTENT AS reason, COUNT(*) AS count
+		FROM REPORTS r
+		LEFT JOIN POSTS p ON r.TARGET_TYPE = 'post' AND r.TARGET_ID =
+		TO_CHAR(p.POST_ID)
+		LEFT JOIN COMMENTS c ON r.TARGET_TYPE = 'comment'
+		AND r.TARGET_ID =
+		TO_CHAR(c.COMMENT_ID)
+		LEFT JOIN USERS u ON (p.USER_ID
+		= u.USER_ID OR c.USER_ID = u.USER_ID)
+		WHERE u.USER_ID = #{userId}
+		GROUP
+		BY CONTENT
+		HAVING COUNT(*) >= 3
+	</select>
+
+	<!-- 신고 등록 -->
+	<insert id="insertReport" parameterType="map">
+		INSERT INTO REPORTS (
+		REPORT_ID, TARGET_ID, TARGET_TYPE, CONTENT, REPORTER_ID, CREATED_AT,
+		STATUS
+		)
+		VALUES (
+		REPORT_SEQ.NEXTVAL, #{targetId}, #{targetType},
+		#{reason}, #{reporterId}, #{createdAt},
+		'대기'
+		)
+	</insert>
+
+	<!-- 전체 신고 목록 -->
+	<select id="getAllReports" resultType="model.dto.ReportDTO">
+		SELECT * FROM REPORTS
+		ORDER BY CREATED_AT DESC
+	</select>
+
+	<!-- 전체 신고 목록 + 타겟 상세 정보 -->
+	<select id="getAllReportsWithTargetInfo"
+		resultType="model.dto.ReportDTO">
+		SELECT r.REPORT_ID, r.TARGET_ID, r.TARGET_TYPE,
+		r.REPORTER_ID, r.CONTENT,
+		r.CREATED_AT,
+		NVL(p.USER_ID, cUser.USER_ID) AS
+		targetUserId,
+		NVL(pUser.NICKNAME, cUser.NICKNAME) AS targetNickname,
+		c.POST_ID AS postId
+		FROM REPORTS r
+		LEFT JOIN POSTS p ON r.TARGET_TYPE =
+		'post' AND r.TARGET_ID =
+		TO_CHAR(p.POST_ID)
+		LEFT JOIN USERS pUser ON
+		p.USER_ID = pUser.USER_ID
+		LEFT JOIN COMMENTS c ON r.TARGET_TYPE =
+		'comment' AND r.TARGET_ID =
+		TO_CHAR(c.COMMENT_ID)
+		LEFT JOIN USERS cUser
+		ON c.USER_ID = cUser.USER_ID
+		ORDER BY r.CREATED_AT DESC
+	</select>
+
+	<!-- 신고 상태 변경 -->
+	<update id="updateReportStatus" parameterType="map">
+		UPDATE REPORTS
+		SET
+		STATUS = #{status} WHERE REPORT_ID = #{reportId}
+	</update>
+
+	<!-- 신고 대상자 아이디 조회 -->
+	<select id="getTargetUserIdByReportId" parameterType="int"
+		resultType="string">
+		SELECT TARGET_ID FROM REPORTS WHERE REPORT_ID =
+		#{reportId}
+	</select>
+
+	<!-- 승인된 신고 누적 개수 -->
+	<select id="countApprovedReportsByUser" parameterType="string"
+		resultType="int">
+		SELECT COUNT(*) FROM REPORTS WHERE TARGET_ID = #{userId}
+		AND STATUS = '승인'
+	</select>
+
+	<!-- 특정 회원의 승인된 신고 목록 -->
+	<select id="getApprovedReportsByUserId" parameterType="string"
+		resultType="model.dto.ReportDTO">
+		SELECT r.*, COALESCE(p.USER_ID, c.USER_ID) AS targetUserId,
+		COALESCE(pUser.NICKNAME, cUser.NICKNAME) AS targetNickname,
+		COALESCE(p.TITLE, c.C_CONTENT) AS targetTitle,
+		c.POST_ID AS postId
+		FROM
+		REPORTS r
+		LEFT JOIN POSTS p ON r.TARGET_TYPE = 'post' AND r.TARGET_ID
+		=
+		TO_CHAR(p.POST_ID)
+		LEFT JOIN COMMENTS c ON r.TARGET_TYPE = 'comment'
+		AND r.TARGET_ID =
+		TO_CHAR(c.COMMENT_ID)
+		LEFT JOIN USERS pUser ON
+		p.USER_ID = pUser.USER_ID
+		LEFT JOIN USERS cUser ON c.USER_ID =
+		cUser.USER_ID
+		WHERE COALESCE(p.USER_ID, c.USER_ID) = #{userId}
+		AND
+		r.STATUS = '승인'
+		ORDER BY r.CREATED_AT DESC
+	</select>
+
+	<!-- 특정 회원의 승인된 신고 건수 -->
+	<select id="getApprovedReportCountByUserId"
+		parameterType="string" resultType="int">
+		SELECT COUNT(*)
+		FROM REPORTS r
+		LEFT
+		JOIN POSTS p ON r.TARGET_TYPE = 'post' AND r.TARGET_ID =
+		TO_CHAR(p.POST_ID)
+		LEFT JOIN COMMENTS c ON r.TARGET_TYPE = 'comment'
+		AND r.TARGET_ID =
+		TO_CHAR(c.COMMENT_ID)
+		LEFT JOIN USERS u ON (p.USER_ID
+		= u.USER_ID OR c.USER_ID = u.USER_ID)
+		WHERE u.USER_ID = #{userId}
+		AND
+		r.STATUS = '승인'
+	</select>
+
+	<!-- 승인된 신고 목록 -->
+	<select id="getApprovedReports" resultType="model.dto.ReportDTO">
+		SELECT * FROM
+		REPORTS
+		WHERE STATUS = '승인' ORDER BY CREATED_AT DESC
+	</select>
+
+	<!-- 대기중인 신고 목록 -->
+	<select id="getPendingReports" resultType="model.dto.ReportDTO">
+		SELECT r.*,
+		COALESCE(p.USER_ID, cUser.USER_ID) AS targetUserId,
+		COALESCE(pUser.NICKNAME, cUser.NICKNAME) AS targetNickname,
+		COALESCE(p.TITLE, c.C_CONTENT) AS targetTitle,
+		c.POST_ID AS postId
+		FROM
+		REPORTS r
+		LEFT JOIN POSTS p ON r.TARGET_TYPE = 'post' AND r.TARGET_ID
+		=
+		TO_CHAR(p.POST_ID)
+		LEFT JOIN USERS pUser ON p.USER_ID = pUser.USER_ID
+		LEFT JOIN COMMENTS c ON r.TARGET_TYPE = 'comment' AND r.TARGET_ID =
+		TO_CHAR(c.COMMENT_ID)
+		LEFT JOIN USERS cUser ON c.USER_ID =
+		cUser.USER_ID
+		WHERE r.STATUS IS NULL OR r.STATUS = '대기' OR r.STATUS =
+		''
+		ORDER BY r.CREATED_AT DESC
+	</select>
+
+	<!-- 처리된 신고 목록 (승인/거부) -->
+	<select id="getProcessedReports"
+		resultType="model.dto.ReportDTO">
+		SELECT r.*, COALESCE(p.USER_ID, cUser.USER_ID) AS
+		targetUserId,
+		COALESCE(pUser.NICKNAME, cUser.NICKNAME) AS
+		targetNickname,
+		COALESCE(p.TITLE, c.C_CONTENT) AS targetTitle,
+		c.POST_ID AS postId
+		FROM REPORTS r
+		LEFT JOIN POSTS p ON r.TARGET_TYPE =
+		'post' AND r.TARGET_ID =
+		TO_CHAR(p.POST_ID)
+		LEFT JOIN USERS pUser ON
+		p.USER_ID = pUser.USER_ID
+		LEFT JOIN COMMENTS c ON r.TARGET_TYPE =
+		'comment' AND r.TARGET_ID =
+		TO_CHAR(c.COMMENT_ID)
+		LEFT JOIN USERS cUser
+		ON c.USER_ID = cUser.USER_ID
+		WHERE r.STATUS IN ('승인', '거부')
+		ORDER BY
+		r.CREATED_AT DESC
+	</select>
+
+	<!-- 댓글일 경우 postId 조회 -->
+	<select id="getPostIdByReportId" parameterType="int"
+		resultType="string">
+		SELECT CASE
+		WHEN TARGET_TYPE = 'post' THEN TARGET_ID
+		WHEN
+		TARGET_TYPE = 'comment' THEN (
+		SELECT TO_CHAR(POST_ID) FROM COMMENTS
+		WHERE COMMENT_ID =
+		TO_NUMBER(TARGET_ID)
+		)
+		ELSE NULL
+		END AS POST_ID
+		FROM
+		REPORTS
+		WHERE REPORT_ID = #{reportId}
+	</select>
+
+	<!-- 특정 유저가 3회 이상 '승인'된 신고 대상 -->
+	<select id="getDuplicateReportedTargets" parameterType="string"
+		resultType="map">
+		SELECT r.TARGET_ID, r.TARGET_TYPE, COUNT(*) AS count
+		FROM
+		REPORTS r
+		LEFT JOIN POSTS p ON r.TARGET_TYPE = 'post' AND r.TARGET_ID
+		=
+		TO_CHAR(p.POST_ID)
+		LEFT JOIN COMMENTS c ON r.TARGET_TYPE = 'comment'
+		AND r.TARGET_ID =
+		TO_CHAR(c.COMMENT_ID)
+		LEFT JOIN USERS u ON (p.USER_ID
+		= u.USER_ID OR c.USER_ID = u.USER_ID)
+		WHERE u.USER_ID = #{userId}
+		AND
+		r.STATUS = '승인'
+		GROUP BY r.TARGET_ID, r.TARGET_TYPE
+		HAVING COUNT(*) >= 3
+	</select>
+
+	<!-- 0701 주화 - 승인된 신고가 3회 이상인 게시글 작성자 조회 -->
+	<select id="getUsersWithThreeOrMoreApprovedReports"
+		resultType="model.dto.UserDTO">
+		SELECT u.USER_ID, u.USER_NAME, u.NICKNAME, u.SUSPENDED_UNTIL
+		FROM USERS u
+		WHERE u.USER_ID IN (
+		SELECT p.USER_ID
+		FROM REPORTS r
+		JOIN POSTS p ON r.TARGET_TYPE = 'post' AND r.TARGET_ID =
+		TO_CHAR(p.POST_ID)
+		WHERE r.STATUS = '승인'
+		GROUP BY p.USER_ID
+		HAVING COUNT(*) >= 3
+		)
+	</select>
+
+	<!-- USER테이블 정지날자 저장 -->
+	<update id="suspendUsersWithThreeOrMoreReports">
+		UPDATE USERS u
+		SET SUSPENDED_UNTIL = TRUNC(SYSDATE) +
+		3
+		WHERE u.USER_ID IN (
+		SELECT p.USER_ID
+		FROM REPORTS r
+		JOIN POSTS p ON
+		r.TARGET_TYPE = 'post' AND r.TARGET_ID =
+		TO_CHAR(p.POST_ID)
+		WHERE
+		r.STATUS = '승인'
+		GROUP BY p.USER_ID
+		HAVING COUNT(*) >= 3
+		)
+		AND
+		(u.SUSPENDED_UNTIL IS NULL OR u.SUSPENDED_UNTIL &lt; TRUNC(SYSDATE))
+	</update>
+
+	<!-- USER테이블 정지날자 NULL값으로 변경 (정지 해제) -->
+	<update id="unsuspendUsersOnExpiry">
+		UPDATE USERS
+		SET SUSPENDED_UNTIL = NULL
+		WHERE
+		TRUNC(SUSPENDED_UNTIL) <![CDATA[ <= ]]>
+		TRUNC(SYSDATE)
+	</update>
+
+	<!-- 3회이상 승인된 게시글 신고 -> 완료처리 -->
+	<update id="markReportsCompleteByUserId" parameterType="string">
+		UPDATE
+		REPORTS
+		SET STATUS = '완료'
+		WHERE STATUS = '승인'
+		AND TARGET_TYPE = 'post'
+		AND TARGET_ID IN (
+		SELECT TO_CHAR(p.POST_ID)
+		FROM POSTS p
+		WHERE
+		p.USER_ID
+		= #{userId}
+		)
+		AND TARGET_ID IN (
+		SELECT TARGET_ID
+		FROM REPORTS
+		WHERE STATUS
+		= '승인'
+		GROUP BY TARGET_ID
+		HAVING COUNT(*) >= 3
+		)
+	</update>
+
+
+</mapper>

@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="postMapper">
+
+
+	<!-- 조회수 기준 인기글 TOP 3 -->
+	<select id="getTopPosts" resultType="model.dto.PostDTO">
+  <![CDATA[
+    SELECT *
+    FROM (
+      SELECT * FROM posts
+      ORDER BY view_count DESC
+    )
+    WHERE ROWNUM <= 3
+  ]]>
+	</select>
+
+	<select id="getTopPostsByCategory" parameterType="string"
+		resultType="model.dto.PostDTO">
+  <![CDATA[
+    SELECT *
+    FROM (
+      SELECT * FROM posts
+      WHERE category = #{category}
+      ORDER BY view_count DESC
+    )
+    WHERE ROWNUM <= 3
+  ]]>
+	</select>
+
+	<select id="getPostById" parameterType="int"
+		resultType="model.dto.PostDTO">
+		SELECT p.post_id, p.user_id, p.category, p.title, p.p_content, p.created_at,
+		p.view_count, p.file_path, p.file_type, u.nickname
+		FROM posts p
+		JOIN users u ON p.user_id = u.user_id
+		WHERE p.post_id = #{postId}
+	</select>
+
+
+	<update id="increaseViewCount" parameterType="int">
+		UPDATE posts
+		SET
+		view_count = view_count + 1
+		WHERE post_id = #{postId}
+	</update>
+
+
+	<!-- 1. 좋아요 누르기 -->
+	<insert id="addLike" parameterType="map">
+		INSERT INTO post_likes
+		(post_id, user_id)
+		VALUES (#{postId}, #{userId})
+	</insert>
+
+	<!-- 2. 좋아요 수 조회 -->
+	<select id="getLikeCount" parameterType="int" resultType="int">
+		SELECT
+		like_count FROM posts WHERE post_id = #{postId}
+	</select>
+
+
+	<!-- 3. 내가 이미 좋아요 눌렀는지 확인 -->
+	<select id="hasLiked" parameterType="map" resultType="int">
+		SELECT
+		COUNT(*) FROM post_likes
+		WHERE post_id = #{postId} AND user_id =
+		#{userId}
+	</select>
+
+
+	<!-- 4. 좋아요 수 증가 -->
+	<update id="increaseLikeCount" parameterType="int">
+		UPDATE posts
+		SET
+		like_count = like_count + 1
+		WHERE post_id = #{postId}
+	</update>
+
+
+	<!-- 5. 좋아요 취소 -->
+	<delete id="removeLike" parameterType="map">
+		DELETE FROM post_likes
+		WHERE post_id = #{postId} AND user_id = #{userId}
+	</delete>
+
+	<update id="decreaseLikeCount" parameterType="int">
+		UPDATE posts
+		SET
+		like_count = like_count - 1
+		WHERE post_id = #{postId} AND like_count >
+		0
+	</update>
+
+
+	<!-- 게시글 목록: 카테고리 + 키워드 + 페이징 -->
+	<select id="selectByCategoryWithKeyword"
+		resultType="model.dto.PostDTO" parameterType="map">
+		SELECT *
+		FROM posts
+		WHERE category = #{category}
+		AND (title LIKE '%' || #{keyword} || '%' OR p_content LIKE '%' ||
+		#{keyword} || '%')
+		ORDER BY created_at DESC
+		OFFSET #{offset} ROWS FETCH NEXT #{limit} ROWS ONLY
+	</select>
+
+	<!-- 게시글 개수: 카테고리 + 키워드 -->
+	<select id="countByCategoriesWithKeyword" resultType="int"
+		parameterType="map">
+		SELECT COUNT(*)
+		FROM posts
+		WHERE category IN
+		<foreach collection="categories" item="cat" open="("
+			separator="," close=")">
+			#{cat}
+		</foreach>
+		AND (title LIKE '%' || #{keyword} || '%' OR p_content LIKE '%' ||
+		#{keyword} || '%')
+	</select>
+
+
+
+
+	<insert id="insertPost" parameterType="model.dto.PostDTO">
+		INSERT INTO posts (
+		post_id, user_id, category, title, p_content,
+		created_at, view_count, like_count, file_path, file_type
+		) VALUES (
+		posts_seq.NEXTVAL,
+		#{userId}, #{category}, #{title}, #{pContent},
+		SYSDATE, 0, 0, #{filePath}, #{fileType}
+		)
+	</insert>
+
+
+	<select id="selectByCategoriesWithKeyword"
+		resultType="model.dto.PostDTO" parameterType="map">
+		SELECT * FROM (
+		SELECT inner.*, ROWNUM rn
+		FROM (
+		SELECT p.*, u.nickname
+		FROM posts p
+		JOIN users u ON p.user_id = u.user_id
+		WHERE p.category IN
+		<foreach collection="categories" item="cat" open="("
+			separator="," close=")">
+			#{cat}
+		</foreach>
+		AND (p.title LIKE '%' || #{keyword} || '%' OR p.p_content LIKE '%' ||
+		#{keyword} || '%')
+		ORDER BY p.created_at DESC
+		) inner
+		WHERE ROWNUM &lt;= #{offset} + #{limit}
+		)
+		WHERE rn &gt; #{offset}
+	</select>
+
+	<delete id="deleteScrapsByPostId" parameterType="int">
+		DELETE FROM SCRAPS
+		WHERE POST_ID = #{postId}
+	</delete>
+
+
+
+</mapper>

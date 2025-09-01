@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="feedbackMapper">
+
+  <!-- 피드백 저장 (TODO_LIST 테이블의 FEEDBACK 컬럼) -->
+  <update id="updateFeedback" parameterType="model.dto.FeedbackDTO">
+    UPDATE TODO_LIST
+    SET FEEDBACK = #{feedback}
+    WHERE TODO_ID = #{todoId}
+  </update>
+
+  <!-- 피드백 조회 -->
+  <select id="getFeedbackByTodoId" parameterType="int" resultType="model.dto.FeedbackDTO">
+    SELECT TODO_ID, USER_ID, FEEDBACK
+    FROM TODO_LIST
+    WHERE TODO_ID = #{todoId}
+  </select>
+
+</mapper>

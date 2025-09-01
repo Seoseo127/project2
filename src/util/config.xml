@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+  PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+
+	<settings>
+		<setting name="jdbcTypeForNull" value="NULL" />
+		<setting name="mapUnderscoreToCamelCase" value="true" />
+	</settings>
+
+
+
+
+	<environments default="development">
+		<environment id="development">
+			<transactionManager type="JDBC" />
+			<dataSource type="POOLED">
+				<property name="driver" value="oracle.jdbc.OracleDriver" />
+				<property name="url"
+					value="jdbc:oracle:thin:@192.168.18.10:1521:xe" />
+				<property name="username" value="PROJECT_2" />
+				<property name="password" value="pj2" />
+			</dataSource>
+		</environment>
+	</environments>
+
+ <mappers>
+		<mapper resource="util/mapper/CalendarMapper.xml"/>
+		<mapper resource="util/mapper/CommentMapper.xml" />
+		<mapper resource="util/mapper/communityMapper.xml" />
+		<mapper resource="util/mapper/FeedbackMapper.xml" />
+		<mapper resource="util/mapper/NotificationMapper.xml"/>
+		<mapper resource="util/mapper/PostMapper.xml"/>
+		<mapper resource="util/mapper/StudyGroupMapper.xml" />
+		<mapper resource="util/mapper/StudyMemberMapper.xml"/>
+		<mapper resource="util/mapper/TimerMapper.xml" />
+		<mapper resource="util/mapper/todoMapper.xml" />
+		<mapper resource="util/mapper/UserMapper.xml" />
+		<mapper resource="util/mapper/reportMapper.xml"/>
+</mappers>
+
+
+
+</configuration>
+
+

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="commentMapper">
+
+	<select id="getCommentsByPostId" resultType="model.dto.CommentDTO">
+    SELECT c.*, u.nickname AS nickname
+    FROM COMMENTS c
+    JOIN USERS u ON c.USER_ID = u.USER_ID
+    WHERE c.POST_ID = #{postId}
+    ORDER BY c.CREATED_AT ASC
+	</select>
+
+
+
+	<insert id="addComment" parameterType="model.dto.CommentDTO">
+		INSERT INTO COMMENTS
+		(COMMENT_ID, POST_ID, USER_ID, C_CONTENT, CREATED_AT)
+		VALUES
+		(COMMENTS_SEQ.NEXTVAL, #{postId}, #{userId}, #{cContent},
+		SYSDATE)
+	</insert>
+
+	<update id="updateComment" parameterType="model.dto.CommentDTO">
+		UPDATE COMMENTS SET
+		C_CONTENT = #{cContent} WHERE COMMENT_ID = #{commentId}
+	</update>
+
+	<delete id="deleteComment" parameterType="int">
+		DELETE FROM COMMENTS
+		WHERE COMMENT_ID = #{commentId}
+	</delete>
+
+	<select id="getCommentById" resultType="model.dto.CommentDTO">
+		SELECT * FROM COMMENTS
+		WHERE COMMENT_ID = #{commentId}
+	</select>
+
+	<!-- 내가 쓴 글 목록 -->
+	<select id="selectMyPosts" parameterType="String"
+		resultType="model.dto.PostDTO">
+		SELECT POST_ID, CATEGORY, TITLE, CREATED_AT
+		FROM POSTS
+		WHERE USER_ID = #{userId}
+		ORDER BY CREATED_AT DESC
+	</select>
+
+	<!-- 내가 쓴 댓글 목록 -->
+	<select id="selectMyComments" parameterType="String"
+		resultMap="commentWithPostTitle">
+		SELECT C.COMMENT_ID, C.POST_ID, C.C_CONTENT, C.CREATED_AT, P.TITLE
+		FROM COMMENTS C
+		JOIN POSTS P ON C.POST_ID = P.POST_ID
+		WHERE C.USER_ID = #{userId}
+		ORDER BY C.CREATED_AT DESC
+	</select>
+	
+
+	
+
+	<resultMap id="commentWithPostTitle"
+		type="model.dto.CommentDTO">
+		<result property="commentId" column="COMMENT_ID" />
+		<result property="postId" column="POST_ID" />
+		<result property="cContent" column="C_CONTENT" />
+		<result property="createdAt" column="CREATED_AT" />
+		<result property="postTitle" column="TITLE" />
+	</resultMap>
+	
+		<!-- 게시글 삭제 시 해당 글의 모든 댓글 삭제 -->
+	<delete id="deleteCommentsByPostId" parameterType="int">
+		DELETE FROM COMMENTS
+		WHERE POST_ID = #{postId}
+	</delete>
+	
+</mapper>
