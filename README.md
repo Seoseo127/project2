@@ -45,7 +45,7 @@
 
 | 분야    | 기술                              |
 | ----- | ------------------------------- |
-| 백엔드   | Java, Spring MVC, MyBatis, JDBC |
+| 백엔드   | Java, Spring MVC, JDBC |
 | 프론트엔드 | JSP, HTML, CSS, JavaScript      |
 | DB    | Oracle / MySQL                  |
 | 시각화   | Chart.js / D3.js                |
